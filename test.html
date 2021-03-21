@@ -1,0 +1,75 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script>
+window.onload = function() {
+
+var tempPoints = [];
+var humidPoints = [];
+var heightPoints = [];
+
+
+function addData(data) {
+    $.each(data, function(index, value) {        
+        tempPoints.push({x: index, y: value.temp});
+        humidPoints.push({x: index, y: value.humid});
+        heightPoints.push({x: index, y: value.height});        
+    });
+    chart1.render();
+    chart2.render();
+    chart3.render();
+}
+
+
+function updateData() {
+    $.getJSON("./testData.json", addData)
+}
+
+updateData();
+
+var chart1 = new CanvasJS.Chart("chart-temperature", {
+	theme: "light2",
+	title: {
+		text: "Temperature"
+	},
+	data: [{
+		type: "line",
+		dataPoints: tempPoints
+	}]
+});
+
+var chart2 = new CanvasJS.Chart("chart-humidity", {
+	theme: "light2",
+	title: {
+		text: "Humidity"
+	},
+	data: [{
+		type: "line",
+		dataPoints: humidPoints
+	}]
+});
+
+var chart3 = new CanvasJS.Chart("chart-height", {
+	theme: "light2",
+	title: {
+		text: "Height"
+	},
+	data: [{
+		type: "line",
+		dataPoints: heightPoints
+	}]
+});
+
+}
+</script>
+</head>
+<body>
+<div id="chart-temperature" style="height: 230px; width: 100%;"></div>
+<div id="chart-humidity" style="height: 230px; width: 100%;"></div>
+<div id="chart-height" style="height: 230px; width: 100%;"></div>
+
+<script src="https://canvasjs.com/assets/script/jquery-1.11.1.min.js"></script>
+<script src="https://canvasjs.com/assets/script/jquery.canvasjs.min.js"></script>
+</body>
+</html>
