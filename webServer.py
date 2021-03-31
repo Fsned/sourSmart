@@ -5,62 +5,77 @@ except:
     import socket
 
 import gc
+from time import sleep
+import network
 
 
+def connectWifi(ssid='CableBox-BF58', psk='ymn5gzm5um'):
+    
+    station = network.WLAN(network.STA_IF)
+    station.active(True)
+    station.connect(ssid, psk)
+    
+    for a in range(10):
+        if station.isconnected():
+            print('Connection successful')
+            print(station.ifconfig())
+            return True
+        
+        sleep(1)
+
+    return False
+
+connectWifi()
 gc.collect()
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('', 80))
 s.listen(5)
 
-
-
 def web_page():  
     html = """
-    <!DOCTYPE HTML>
+<!DOCTYPE HTML>
 <html>
 <head>
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
+
 window.onload = function() {
 
 var tempPoints = [];
 var humidPoints = [];
 var heightPoints = [];
 
+loadJSON(function(response) {
+    //var actual_JSON = JSON.parse(response);
+	var actual_JSON = response;
+	addData2(actual_JSON);
+ });
 
-function addData(data) {
+function loadJSON(callback) {   
+
+	var xobj = new XMLHttpRequest();
+		xobj.overrideMimeType("application/json");
+	xobj.open('GET', 'testData.json', true);
+	xobj.onreadystatechange = function () {
+		if (xobj.readyState == 4 && xobj.status == "200") {
+			callback(xobj.responseText);
+		}
+	};
+	xobj.send(null);  
+}
+
+
+function addData2(data) {
     $.each(data, function(index, value) {        
         tempPoints.push({x: index, y: value.temp});
         humidPoints.push({x: index, y: value.humid});
-        heightPoints.push({x: index, y: value.height});
-
-        
+        heightPoints.push({x: index, y: value.height});        
     });
     chart1.render();
     chart2.render();
     chart3.render();
 }
 
-
-function updateData() {
-    $.getJSON("testData.json", addData)
-}
-updateData();
-
-var chartT = new Highcharts.Chart({
-  chart:{ renderTo : 'chart-temperature-hi' },
-  title: { text: 'Temperature' },
-  series: [{
-    showInLegend: false,
-    data: tempPoints
-  }],
-  plotOptions: {
-    line: { animation: false,
-      dataLabels: { enabled: true }
-    },
-    series: { color: '#059e8a' }
-  }
-});
 
 var chart1 = new CanvasJS.Chart("chart-temperature", {
 	theme: "light2",
@@ -99,7 +114,6 @@ var chart3 = new CanvasJS.Chart("chart-height", {
 </script>
 </head>
 <body>
-<div id="chart-temperature-hi" style="height: 230px; width: 100%;"></div>
 <div id="chart-temperature" style="height: 230px; width: 100%;"></div>
 <div id="chart-humidity" style="height: 230px; width: 100%;"></div>
 <div id="chart-height" style="height: 230px; width: 100%;"></div>
@@ -111,11 +125,6 @@ var chart3 = new CanvasJS.Chart("chart-height", {
 """
 
     return html
-
-
-
-
-
 
 
 def webpageJob():
