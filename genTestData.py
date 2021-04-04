@@ -3,19 +3,21 @@ import datetime
 from json import dump
 
 # Initiate empty json list to contain all datasets
-data = []
+temperature = []
+humidity = []
+height = []
 
-for a in range(12):
+data = {}
+for a in range(29):
+    temperature.append(randint(20, 30))
+    humidity.append(randint(25, 90))
+    height.append(randint(0, 100))
 
-    dataSet = {}
-    #dataSet['time'] = str(datetime.datetime.now().time())
-    dataSet['temp'] = randint(20, 30)
-    dataSet['humid'] = randint(25, 90)
-    dataSet['height'] = randint(0, 100)
+data['temperature'] = temperature
+data['humidity'] = humidity
+data['height'] = height
 
-    data.append(dataSet)
-        
-with open ('testData.json', 'w') as f:
+with open ('data.json', 'w') as f:
     dump(data, f)
 
 print ("Generated", data.__len__() , "datasets")
