@@ -87,9 +87,9 @@ def callbackFunction(topic, msg):
 
 
         for a in range(20):
-            temperature.append(temp['temperature'][-1-b])
-            humidity.append(temp['humidity'][-1-b])
-            height.append(temp['height'][-1-b])
+            temperature.append(temp['temperature'][-1-(interval*a)])
+            humidity.append(temp['humidity'][-1-(interval*a)])
+            height.append(temp['height'][-1-(interval*a)])
 
         data['temperature'] = temperature[::-1]
         data['humidity'] = humidity[::-1]
@@ -97,6 +97,20 @@ def callbackFunction(topic, msg):
         
         client.publish(b'/graphData', str(data).encode())
         print ("Published", data)
+
+    elif topic == b'/toggleFeed':
+        temp = {}
+
+        with open ('data.json', 'r') as dataFile:
+            temp = ujson.load(dataFile)
+
+        response = {}
+        response['time'] = msg.decode('utf-8')
+        response['currentHeight'] = temp['height'][-1]
+
+        client.publish(b'/feedData', str(response).encode())
+        
+
 
     else:
         print ("Received unhandled topic message", topic, msg)
@@ -112,7 +126,8 @@ def mqttSetup():
     mqtt_server = '135.181.193.6'
     client_id = ubinascii.hexlify(unique_id())
     subscribeTopics = [ b'/command',
-                        b'/setGraphInterval']
+                        b'/setGraphInterval',
+                        b'/toggleFeed']
 
     client = simple.MQTTClient(client_id, mqtt_server)
     client.set_callback(callbackFunction)
