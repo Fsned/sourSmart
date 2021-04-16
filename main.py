@@ -1,69 +1,39 @@
 
-from machine import Pin, I2C, unique_id, reset
-import ubinascii
+from machine import Pin, I2C, reset
+from machine import deepsleep
 import schedule
-import time, utime
+import utime
+from time import sleep
 import ujson
 from random import randint
-import network
+import utils
+import ubinascii        # Used by the MQTT setup
+import simple           # Used by MQTT
+from machine import unique_id
+import esp32
 
 #import sensors
 import ssd1306
-import simple
-
-
-
-def connectWifi(ssid='CableBox-BF58', psk='ymn5gzm5um'):
-    
-    station = network.WLAN(network.STA_IF)
-    station.active(True)
-    station.connect(ssid, psk)
-    
-    for a in range(10):
-        if station.isconnected():
-            print('Connection successful')
-            print(station.ifconfig())
-            return True
-        
-        time.sleep(1)
-
-    return False
-
-def blinkSequence(ledObject, blinks=1, onTime = 0.2, offTime = 0.25):
-    if ledObject.value():
-        ledObject.value(0)
-        time.sleep(0.2)
-
-    for a in range(blinks):
-        ledObject.value(1)
-        time.sleep(onTime)
-        ledObject.value(0)
-        time.sleep(offTime)
-
-def buttonJob(buttonInput):
-    if  not buttonInput.value():    # Button goes low on click, so if buttonInput == 0, means 'if button is clicked', prevents debouncing outputs on release
-        print ("Button: ", buttonInput.value())
-
-
-
-### Connect to the wifi
-connectWifi()
-
-### Button setup
-buttonInput = Pin(35, Pin.IN)
-buttonInput.irq(trigger=Pin.IRQ_FALLING, handler=buttonJob)
 
 
 def callbackFunction(topic, msg):
-    print ("Received subscriber message!", topic , "-", msg)
+    msg = msg.decode('utf-8')
+    topic = topic.decode('utf-8')
 
+    print ("Received:", msg, "on topic:", topic)
     ### If we received a command, handle it here:
-    if topic == b'/command':
-        if msg == b'ping':
+    if topic == '/command':
+        if msg == 'ping':
             client.publish(b'/response', b'pong')
+        
+        elif msg == 'restart':
+            client.publish(b'/response', b'restarting in 5...')
+            sleep(5)
+            reset()
+
 
     ### If we received a setGraphInterval request, handle it here
-    elif topic == b'/setGraphInterval':
+    elif topic == '/setGraphInterval':
         interval = int(msg)
         temp = {}
 
@@ -98,27 +68,42 @@ def callbackFunction(topic, msg):
         client.publish(b'/graphData', str(data).encode())
         print ("Published", data)
 
-    elif topic == b'/toggleFeed':
+    elif topic == '/toggleFeed':
         temp = {}
 
         with open ('data.json', 'r') as dataFile:
             temp = ujson.load(dataFile)
 
         response = {}
-        response['time'] = msg.decode('utf-8')
+        response['time'] = msg
         response['currentHeight'] = temp['height'][-1]
 
         client.publish(b'/feedData', str(response).encode())
         
-
-
     else:
         print ("Received unhandled topic message", topic, msg)
 
 
+
+def buttonJob(buttonInput):
+    global timer
+
+    if  not buttonInput.value():    # Button goes low on click, so if buttonInput == 0, means 'if button is clicked', prevents debouncing outputs on release
+        timer += 60 # add seconds to the timer...
+        print ("New timer:", timer)
+
+
+
+
+### Button setup
+buttonInput = Pin(35, Pin.IN)
+buttonInput.irq(trigger=Pin.IRQ_FALLING, handler=buttonJob)
+esp32.wake_on_ext0(pin = buttonInput, level = esp32.WAKEUP_ANY_HIGH)
+
+
 def restart_and_reconnect():
   print('Failed to connect to MQTT broker. Reconnecting...')
-  time.sleep(10)
+  sleep(10)
   reset()
 
 
@@ -134,16 +119,43 @@ def mqttSetup():
     client.connect()
     for a in subscribeTopics:
         client.subscribe(a)
+
     print('Connected to %s MQTT broker' % (mqtt_server))
     return client
 
 
-client = mqttSetup()
+def goToSleep(minutes=1):
+    client.publish(b'/response',b'Sleeping for', minutes, 'minutes')
+    sleep(1)
+    deepsleep(minutes*60*1000)
 
+
+
+
+
+### Bootup
+utils.connectWifi('CableBox-BF58','ymn5gzm5um')
+client = mqttSetup()
+client.publish(b'/response', b'Goodmorning!')
+
+timer = 60
+period = 0.5
 
 while True:
-  try:
-    client.check_msg()
+    try:
+        client.check_msg()
+        timer -= period
+        sleep(period)
+        if timer % 5 == 0:
+            print ("Time to sleep:", timer)
+        if timer <= 0:
+            break
 
-  except OSError as e:
-    restart_and_reconnect()
+
+    except OSError as e:
+        restart_and_reconnect()
+
+
+goToSleep(minutes=15)
+
+
